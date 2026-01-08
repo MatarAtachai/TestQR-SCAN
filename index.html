@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Challenge 🎉</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kanit', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .step { display: none; }
+        .step.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl p-8">
+        
+        <div id="step-0" class="step active text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">ยินดีต้อนรับ! 🏆</h1>
+            <p class="text-gray-600 mb-6">กรุณากรอกชื่อเพื่อเริ่มทำควิซ (5 ข้อ)</p>
+            <input type="text" id="username" class="w-full border-2 border-purple-100 rounded-lg p-3 mb-4 focus:border-purple-500 outline-none" placeholder="ชื่อของคุณ...">
+            <button onclick="startQuiz()" class="w-full bg-purple-600 text-white font-bold py-3 rounded-lg hover:bg-purple-700 transition">เริ่มเกม</button>
+        </div>
+
+        <div id="quiz-container"></div>
+
+        <div id="step-final" class="step text-center">
+            <div class="text-6xl mb-4">🎉</div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">ส่งคำตอบเรียบร้อย!</h2>
+            <p id="final-result" class="text-gray-600 mb-6 font-semibold"></p>
+            <div class="bg-purple-50 p-4 rounded-lg mb-6 text-left">
+                <p class="text-sm text-purple-700">📌 บันทึกเวลาที่: <span id="current-time"></span></p>
+                <p class="text-sm text-purple-700">📊 คะแนนของคุณ: <span id="score-display"></span>/5</p>
+            </div>
+            <p class="text-xs text-gray-400 italic">เราบันทึกข้อมูลของคุณลง Google Sheets แล้ว</p>
+        </div>
+
+    </div>
+
+    <script>
+        const scriptURL = 'YOUR_GOOGLE_APPS_SCRIPT_URL'; // ใส่ URL จาก Apps Script ที่นี่
+        let currentStep = 0;
+        let score = 0;
+        let userName = "";
+
+        const questions = [
+            { q: "1 + 1 เท่ากับเท่าไหร่?", options: ["1", "2", "3", "4"], correct: 1 },
+            { q: "สีท้องฟ้าตอนกลางวันคือสีอะไร?", options: ["แดง", "เขียว", "น้ำเงิน", "ดำ"], correct: 2 },
+            { q: "ภาษา HTML ใช้ทำอะไร?", options: ["ทำเว็บ", "ทำอาหาร", "ซ่อมรถ", "เลี้ยงแมว"], correct: 0 },
+            { q: "Google Sheets เป็นโปรแกรมประเภทใด?", options: ["วาดรูป", "ตัดต่อวิดีโอ", "ตารางคำนวณ", "พิมพ์งาน"], correct: 2 },
+            { q: "GitHub Pages ใช้สำหรับอะไร?", options: ["ฝากเงิน", "Hosting เว็บไซต์", "ซื้อของออนไลน์", "ดูหนัง"], correct: 1 }
+        ];
+
+        function startQuiz() {
+            userName = document.getElementById('username').value;
+            if (!userName) return Swal.fire('กรุณาใส่ชื่อ', '', 'warning');
+            renderQuestions();
+            goToStep(1);
+        }
+
+        function renderQuestions() {
+            const container = document.getElementById('quiz-container');
+            questions.forEach((item, index) => {
+                const qNum = index + 1;
+                const html = `
+                    <div id="step-${qNum}" class="step">
+                        <div class="flex justify-between items-center mb-4">
+                            <span class="text-xs font-bold text-purple-600 uppercase tracking-widest">Question ${qNum}/5</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-6">${item.q}</h3>
+                        <div class="space-y-3">
+                            ${item.options.map((opt, i) => `
+                                <button onclick="handleAnswer(${index}, ${i})" class="w-full text-left border-2 border-gray-100 p-4 rounded-xl hover:bg-purple-50 hover:border-purple-200 transition">
+                                    ${opt}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
+
+        function handleAnswer(qIdx, choiceIdx) {
+            if (choiceIdx === questions[qIdx].correct) score++;
+            
+            if (qIdx < questions.length - 1) {
+                goToStep(qIdx + 2);
+            } else {
+                submitData();
+            }
+        }
+
+        function goToStep(step) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            document.getElementById('step-' + step).classList.add('active');
+        }
+
+        async function submitData() {
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            const now = new Date();
+            const timeStr = now.getHours() + ":" + now.getMinutes().toString().padStart(2, '0') + ":" + now.getSeconds().toString().padStart(2, '0');
+
+            try {
+                await fetch(scriptURL, {
+                    method: 'POST',
+                    mode: 'no-cors', // สำคัญ: เพื่อไม่ให้ติดเรื่อง CORS
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: userName, score: score, time: timeStr })
+                });
+
+                document.getElementById('current-time').innerText = timeStr;
+                document.getElementById('score-display').innerText = score;
+                document.getElementById('final-result').innerText = score === 5 ? "เก่งมาก! คุณตอบถูกทุกข้อ" : "เก่งมาก! พยายามต่อไปนะ";
+                
+                Swal.close();
+                goToStep('final');
+            } catch (error) {
+                Swal.fire('เกิดข้อผิดพลาด', 'แต่ข้อมูลของคุณอาจจะถูกบันทึกแล้ว', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
